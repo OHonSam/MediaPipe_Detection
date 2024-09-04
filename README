@@ -1,0 +1,2 @@
+#installpackages
+pip install flask opencv-python mediapipe (terminal)
