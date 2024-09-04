@@ -4,13 +4,12 @@ import mediapipe as mp
 
 app = Flask(__name__)
 
-# Initialize MediaPipe Hand Landmarks and Face Detection models
+# Initialize MediaPipe Hand Landmarks and Face Mesh models
 mp_hands = mp.solutions.hands
-mp_face_detection = mp.solutions.face_detection
-mp_drawing = mp.solutions.drawing_utils
-
 hands = mp_hands.Hands()
-face_detection = mp_face_detection.FaceDetection()
+mp_face_mesh = mp.solutions.face_mesh
+face_mesh = mp_face_mesh.FaceMesh()
+mp_drawing = mp.solutions.drawing_utils
 
 # Initialize webcam feed
 camera = cv2.VideoCapture(0)
@@ -29,26 +28,30 @@ def generate_frames():
         else:
             # Convert the BGR image to RGB for MediaPipe processing
             image = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
-
+            
             # Process the image for hand landmarks
             hand_results = hands.process(image)
 
-            # Process the image for face detection
-            face_results = face_detection.process(image)
-
-            # Convert the image back to BGR for OpenCV
+            # Process the image for face landmarks
+            face_results = face_mesh.process(image)
+            
+            # Convert the image back to BGR for OpenCV display
             image = cv2.cvtColor(image, cv2.COLOR_RGB2BGR)
-
+            
             # Draw hand landmarks if detected
             if hand_results.multi_hand_landmarks:
                 for hand_landmarks in hand_results.multi_hand_landmarks:
-                    mp_drawing.draw_landmarks(image, hand_landmarks, mp_hands.HAND_CONNECTIONS)
-
-            # Draw face detection box if detected
-            if face_results.detections:
-                for detection in face_results.detections:
-                    mp_drawing.draw_detection(image, detection)
-
+                    mp_drawing.draw_landmarks(
+                        image, hand_landmarks, mp_hands.HAND_CONNECTIONS)
+            
+            # Draw face landmarks if detected
+            if face_results.multi_face_landmarks:
+                for face_landmarks in face_results.multi_face_landmarks:
+                    mp_drawing.draw_landmarks(
+                        image, face_landmarks, mp_face_mesh.FACEMESH_CONTOURS, 
+                        mp_drawing.DrawingSpec(color=(0, 255, 0), thickness=1, circle_radius=1),
+                        mp_drawing.DrawingSpec(color=(0, 0, 255), thickness=1, circle_radius=1))
+            
             # Encode the frame to be sent to the client
             ret, buffer = cv2.imencode('.jpg', image)
             frame = buffer.tobytes()
