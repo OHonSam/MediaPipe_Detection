@@ -38,17 +38,28 @@ def generate_frames():
             # Convert the RGB image back to BGR for OpenCV display
             image = cv2.cvtColor(image, cv2.COLOR_RGB2BGR)
 
-            # Draw hand landmarks if detected
+            # Draw hand landmarks if detected and print 3D coordinates
             if hand_results.multi_hand_landmarks:
                 for hand_landmarks in hand_results.multi_hand_landmarks:
                     mp_drawing.draw_landmarks(image, hand_landmarks, mp_hands.HAND_CONNECTIONS)
+                    # Print 3D hand landmark coordinates (x, y, z)
+                    for idx, landmark in enumerate(hand_landmarks.landmark):
+                        h, w, _ = image.shape
+                        cx, cy, cz = int(landmark.x * w), int(landmark.y * h), landmark.z
+                        print(f"Hand landmark {idx}: (x: {cx}, y: {cy}, z: {cz:.4f})")
 
-            # Draw pose landmarks if detected
+            # Draw pose landmarks if detected and print 3D coordinates
             if pose_results.pose_landmarks:
                 mp_drawing.draw_landmarks(
                     image, pose_results.pose_landmarks, mp_pose.POSE_CONNECTIONS,
                     mp_drawing.DrawingSpec(color=(0, 255, 0), thickness=2, circle_radius=2),  # Landmarks
                     mp_drawing.DrawingSpec(color=(0, 0, 255), thickness=2, circle_radius=2))  # Connections
+
+                # Print 3D pose landmark coordinates (x, y, z)
+                for idx, landmark in enumerate(pose_results.pose_landmarks.landmark):
+                    h, w, _ = image.shape
+                    cx, cy, cz = int(landmark.x * w), int(landmark.y * h), landmark.z
+                    print(f"Pose landmark {idx}: (x: {cx}, y: {cy}, z: {cz:.4f})")
 
             # Encode the frame to be sent to the client
             ret, buffer = cv2.imencode('.jpg', image)
