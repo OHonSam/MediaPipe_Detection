@@ -14,18 +14,28 @@ mp_drawing = mp.solutions.drawing_utils
 # Initialize webcam feed
 camera = cv2.VideoCapture(0)
 
+# Initialize frame counter
+frame_number = 0
+
 @app.route('/')
 def index():
     # Render the homepage
     return render_template('index.html')
 
 def generate_frames():
+    global frame_number
     while True:
         # Capture frame from the webcam
         success, frame = camera.read()
         if not success:
             break
         else:
+            # Increment the frame number
+            frame_number += 1
+
+            # Print the image/frame number
+            print(f"Processing Frame: {frame_number}")
+
             # Convert the BGR image to RGB for MediaPipe processing
             image = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
 
@@ -38,15 +48,39 @@ def generate_frames():
             # Convert the RGB image back to BGR for OpenCV display
             image = cv2.cvtColor(image, cv2.COLOR_RGB2BGR)
 
+            # Initialize placeholders for left and right hand landmarks
+            left_hand_landmarks = [(0, 0, 0)] * 21  # 21 landmarks for left hand initialized to (0, 0, 0)
+            right_hand_landmarks = [(0, 0, 0)] * 21  # 21 landmarks for right hand initialized to (0, 0, 0)
+
             # Draw hand landmarks if detected and print 3D coordinates
             if hand_results.multi_hand_landmarks:
-                for hand_landmarks in hand_results.multi_hand_landmarks:
+                for hand_landmarks, handedness in zip(hand_results.multi_hand_landmarks,
+                                                  hand_results.multi_handedness):
+                    
+                    hand_label = handedness.classification[0].label[0:]
+                    
                     mp_drawing.draw_landmarks(image, hand_landmarks, mp_hands.HAND_CONNECTIONS)
                     # Print 3D hand landmark coordinates (x, y, z)
                     for idx, landmark in enumerate(hand_landmarks.landmark):
                         h, w, _ = image.shape
-                        cx, cy, cz = int(landmark.x * w), int(landmark.y * h), landmark.z
-                        print(f"Hand landmark {idx}: (x: {cx}, y: {cy}, z: {cz:.4f})")
+                        landmarks_3d = [(int(landmark.x * w), int(landmark.y * h), landmark.z)
+                                    for landmark in hand_landmarks.landmark]
+                        
+                        if hand_label == 'Left':
+                            right_hand_landmarks = landmarks_3d  # Assign to right hand landmarks
+                        elif hand_label == 'Right':
+                            left_hand_landmarks = landmarks_3d  # Assign to left hand landmarks
+                    
+            
+            # Print the left hand landmarks (or placeholders if no left hand detected)
+            print("Left hand landmarks:")
+            for idx, (x, y, z) in enumerate(left_hand_landmarks):
+                print(f"Landmark {idx}: (x: {x}, y: {y}, z: {z:.4f})")
+
+                    # Print the right hand landmarks (or placeholders if no right hand detected)
+            print("Right hand landmarks:")
+            for idx, (x, y, z) in enumerate(right_hand_landmarks):
+                print(f"Landmark {idx}: (x: {x}, y: {y}, z: {z:.4f})")
 
             # Draw pose landmarks if detected and print 3D coordinates
             if pose_results.pose_landmarks:
