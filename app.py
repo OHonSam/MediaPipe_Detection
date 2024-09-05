@@ -4,6 +4,7 @@ from flask import Flask, render_template, Response
 import cv2
 import mediapipe as mp
 import numpy as np
+from sklearn.cluster import KMeans
 
 app = Flask(__name__)
 
@@ -58,6 +59,8 @@ def pre_process_landmark(landmark_list):
 
     return temp_landmark_list
 
+dataForKmeans = []
+
 def generate_frames():
     global frame_number
     while True:
@@ -99,21 +102,21 @@ def generate_frames():
                     # Print 3D hand landmark coordinates (x, y, z)
                     for idx, landmark in enumerate(hand_landmarks.landmark):
                         h, w, _ = image.shape
-                        hand_landmarks_list = [[int(landmark.x * w), int(landmark.y * h), landmark.z]
+                        hand_landmarks_list = [[float(landmark.x * w), float(landmark.y * h), landmark.z]
                                     for landmark in hand_landmarks.landmark]
-                        '''
-                            Tạm thời không quan tâm trái phải
-                        '''
-                        if hand_label == 'Left':
-                            right_hand_landmarks = hand_landmarks_list  # Assign to right hand landmarks
-                        elif hand_label == 'Right':
-                            left_hand_landmarks = hand_landmarks_list  # Assign to left hand landmarks
+                        
+                        # if hand_label == 'Left':
+                        #     right_hand_landmarks = hand_landmarks_list  # Assign to right hand landmarks
+                        # elif hand_label == 'Right':
+                        #     left_hand_landmarks = hand_landmarks_list  # Assign to left hand landmarks
                     
             
             # Print the left hand landmarks (or placeholders if no left hand detected)
             # print("Left hand landmarks:")
-                pre_process_right_hand_landmark_list = pre_process_landmark(right_hand_landmarks)
-                pre_process_left_hand_landmark_list = pre_process_landmark(left_hand_landmarks)
+                # pre_process_right_hand_landmark_list = pre_process_landmark(right_hand_landmarks)
+                # pre_process_left_hand_landmark_list = pre_process_landmark(left_hand_landmarks)
+                pre_process_hand_landmark_list = pre_process_landmark(hand_landmarks_list)
+                print(pre_process_hand_landmark_list)
 
             # for idx, (x, y, z) in enumerate(left_hand_landmarks):
             #     print(f"Landmark {idx}: (x: {x}, y: {y}, z: {z:.4f})")
@@ -133,19 +136,30 @@ def generate_frames():
                 # Print 3D pose landmark coordinates (x, y, z)
                 for idx, landmark in enumerate(pose_results.pose_landmarks.landmark):
                     h, w, _ = image.shape
-                    cx, cy, cz = int(landmark.x * w), int(landmark.y * h), landmark.z
+                    cx, cy, cz = float(landmark.x * w), float(landmark.y * h), landmark.z
                     pose_landmarks_list = [[cx, cy, cz] for landmark in pose_results.pose_landmarks.landmark]
                     # print(f"Pose landmark {idx}: (x: {cx}, y: {cy}, z: {cz:.4f})")
             
                 pre_process_pose_landmark = pre_process_landmark(pose_landmarks_list)
+                print(pre_process_pose_landmark)
 
             '''
                 Kết hợp right_hand_landmark, left_hand_landmark và pose_landmark nếu như có hand_landmark và pose_landmark được 1 data points
             '''
             if pose_results.pose_landmarks and hand_results.multi_hand_landmarks:
-                hand_pose_landmarks = pre_process_right_hand_landmark_list + pre_process_left_hand_landmark_list + pre_process_pose_landmark
-                hand_pose_landmarks = np.array(hand_pose_landmarks)
-                print(hand_pose_landmarks.shape)
+                # hand_pose_landmarks = pre_process_right_hand_landmark_list + pre_process_left_hand_landmark_list + pre_process_pose_landmark
+                hand_pose_landmarks = pre_process_hand_landmark_list + pre_process_pose_landmark
+
+                dataForKmeans.append(hand_pose_landmarks)
+
+                if len(dataForKmeans) == 30:
+                    kmeans = KMeans(n_clusters=20, random_state=0).fit(dataForKmeans)
+                    print('Centers found by scikit-learn:')
+                    print(kmeans.cluster_centers_)
+                    for i in range(15):
+                        dataForKmeans.pop(0)
+                    
+
 
             # Encode the frame to be sent to the client
             ret, buffer = cv2.imencode('.jpg', image)
@@ -154,6 +168,7 @@ def generate_frames():
             # Yield the frame in byte format
             yield (b'--frame\r\n'
                    b'Content-Type: image/jpeg\r\n\r\n' + frame + b'\r\n')
+            
 
 @app.route('/video_feed')
 def video_feed():
